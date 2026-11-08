@@ -43,14 +43,25 @@
 
 ## Установка
 
+### Windows
+
+```powershell
+git clone https://github.com/charlott4ka-maker/Cozmo-up.git
+cd Cozmo-up
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+```
+
+### macOS / Linux
+
 ```bash
 git clone https://github.com/charlott4ka-maker/Cozmo-up.git
 cd Cozmo-up
 bash scripts/setup.sh
 ```
 
-Скрипт сам найдёт подходящий Python, создаст `.venv`, поставит зависимости и
-скачает ассеты Cozmo (анимации, звуки, лица) в `~/.pycozmo/assets`.
+Скрипт сам найдёт подходящий Python, создаст `.venv`, поставит зависимости,
+скачает ассеты Cozmo (анимации, звуки, лица, ~570 МБ) в `~/.pycozmo/assets`
+и сгенерирует русские фразы в `voices/`.
 
 Если хочется вручную:
 
@@ -58,8 +69,13 @@ bash scripts/setup.sh
 python3.12 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-pycozmo_resources.py download      # ~80 МБ ассетов, нужен интернет
+pycozmo_resources.py download      # ассеты, нужен интернет
+python scripts/make_voice.py       # русские фразы, нужен интернет
 ```
+
+> На Windows активировать venv не обязательно (и `Activate.ps1` часто
+> блокируется политикой выполнения). Просто вызывайте интерпретатор напрямую:
+> `.\.venv\Scripts\python.exe examples\01_connect.py`
 
 > **Сделайте установку до того, как подключитесь к Wi-Fi робота.** Пока
 > компьютер в сети Cozmo, интернета нет — скачать пакеты и ассеты не получится.
@@ -214,7 +230,8 @@ cozmo_up/helpers.py   обёртки: connect(), robot_info()
 cozmo_up/screen.py    экран 128x32, русский текст, поиск шрифта
 cozmo_up/speech.py    русская речь, конвертация аудио, патч бага pycozmo
 examples/             пронумерованные примеры от простого к сложному
-scripts/setup.sh      установка окружения
+scripts/setup.sh      установка окружения (macOS/Linux)
+scripts/setup.ps1     установка окружения (Windows)
 scripts/doctor.py     диагностика: Python, pycozmo, ассеты, сеть робота
 scripts/make_voice.py генерация русских фраз в voices/
 phrases.ru.json       словарь фраз {ключ: текст}
@@ -284,6 +301,21 @@ version-specific, что-то может работать иначе. Чаще �
 
 **VPN / корпоративная сеть**
 Отключите VPN — он перехватывает трафик к `172.31.1.1`.
+
+**Windows сам отключается от сети робота**
+В сети Cozmo нет интернета, и Windows норовит вернуться на домашний Wi-Fi.
+В свойствах домашней сети снимите «Подключаться автоматически», а у сети
+Cozmo — поставьте.
+
+**Windows: брандмауэр блокирует**
+При первом запуске появится окно «Разрешить Python доступ к сети» —
+разрешите для **частных** сетей. Если окно случайно закрыли: Параметры →
+Сеть и Интернет → Брандмауэр → Разрешить работу с приложением → найдите
+Python.
+
+**Windows: `Activate.ps1 не удается загрузить, так как выполнение сценариев отключено`**
+Не активируйте venv вообще — вызывайте интерпретатор напрямую:
+`.\.venv\Scripts\python.exe examples\01_connect.py`
 
 **`ValueError: Invalid image dimensions. Only 128x32 images are supported`**
 Картинку надо привести к 128x32: `cozmo_up.screen.to_screen(image)`.
