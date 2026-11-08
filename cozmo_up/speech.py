@@ -164,3 +164,56 @@ def duration(path: str | Path) -> float:
     """Длительность WAV-файла в секундах."""
     with wave.open(str(path), "r") as w:
         return w.getnframes() / w.getframerate()
+
+
+class LiveVoice:
+    """Озвучка на лету: для ответов ИИ, которых заранее нет.
+
+    Синтезирует фразу при первом появлении и кладёт в кэш, так что
+    повторы произносятся мгновенно.
+
+    Движок edge требует интернета. В Wi-Fi робота его нет, поэтому
+    раздайте интернет с телефона по USB — либо берите engine="espeak",
+    он работает офлайн.
+    """
+
+    def __init__(self, engine: str = "edge", preset: str = None,
+                 cache_dir: str | Path = "voices/cache") -> None:
+        from . import tts
+
+        self.engine = engine
+        self.settings = tts.PRESETS[preset or tts.DEFAULT_PRESET]
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self._tts = tts
+
+    def path_for(self, text: str) -> Path:
+        import hashlib
+
+        digest = hashlib.sha1(text.strip().lower().encode("utf-8")).hexdigest()[:16]
+        return self.cache_dir / f"{digest}.wav"
+
+    def prepare(self, text: str) -> Path:
+        """Получить WAV для фразы, синтезировав при необходимости."""
+        target = self.path_for(text)
+        if not target.is_file():
+            self._tts.synthesize(text, target, engine=self.engine,
+                                 settings=self.settings, rate_hz=COZMO_RATE)
+        return target
+
+    def say(self, cli, text: str) -> None:
+        """Произнести фразу на роботе."""
+        text = text.strip()
+        if not text:
+            return
+        cli.play_audio(str(self.prepare(text)))
+
+    def say_and_show(self, cli, text: str) -> None:
+        """Произнести и показать текст на экране."""
+        from . import screen
+
+        text = text.strip()
+        if not text:
+            return
+        cli.display_image(screen.render_text(text[:40]))
+        self.say(cli, text)

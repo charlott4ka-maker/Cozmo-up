@@ -36,182 +36,23 @@
 
 import argparse
 import json
-import shutil
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from cozmo_up.speech import COZMO_RATE, convert, duration  # noqa: E402
+from cozmo_up.speech import COZMO_RATE, duration  # noqa: E402
+from cozmo_up.tts import (  # noqa: E402
+    DEFAULT_PRESET, EDGE_VOICES, PRESETS, list_edge_voices, synthesize,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 PHRASES_FILE = ROOT / "phrases.ru.json"
 VOICE_DIR = ROOT / "voices"
 
-#: Русские голоса Microsoft Edge.
-EDGE_VOICES = ["ru-RU-SvetlanaNeural", "ru-RU-DmitryNeural"]
-
-#: Готовые настройки голоса. Выбираются флагом --preset.
-#: pitch в герцах, rate в процентах к обычной скорости.
-#: espeak_pitch — 0..99 (по умолчанию 50), espeak_speed — слов в минуту.
-PRESETS = {
-    "malchik": {
-        "description": "мальчишеский: мужской голос, поднятый по тону",
-        "voice": "ru-RU-DmitryNeural",
-        "pitch": "+45Hz",
-        "rate": "+10%",
-        "espeak_pitch": 75,
-        "espeak_speed": 165,
-    },
-    "kozmo": {
-        "description": "как настоящий Козмо: высокий, быстрый, мультяшный",
-        "voice": "ru-RU-DmitryNeural",
-        "pitch": "+80Hz",
-        "rate": "+22%",
-        "espeak_pitch": 90,
-        "espeak_speed": 185,
-    },
-    "malysh": {
-        "description": "совсем малыш: очень высокий и быстрый",
-        "voice": "ru-RU-SvetlanaNeural",
-        "pitch": "+100Hz",
-        "rate": "+25%",
-        "espeak_pitch": 99,
-        "espeak_speed": 190,
-    },
-    "devushka": {
-        "description": "обычный женский голос (как было)",
-        "voice": "ru-RU-SvetlanaNeural",
-        "pitch": "+0Hz",
-        "rate": "+0%",
-        "espeak_pitch": 50,
-        "espeak_speed": 150,
-    },
-    "vzroslyj": {
-        "description": "обычный мужской голос",
-        "voice": "ru-RU-DmitryNeural",
-        "pitch": "+0Hz",
-        "rate": "+0%",
-        "espeak_pitch": 40,
-        "espeak_speed": 150,
-    },
-}
-
-DEFAULT_PRESET = "malchik"
-
-
-def synth_edge(text: str, out_mp3: Path, voice: str,
-               pitch: str = "+0Hz", rate: str = "+0%") -> None:
-    """Озвучить через edge-tts (нужен интернет).
-
-    pitch задаётся в герцах ("+45Hz"), rate — в процентах ("+10%").
-    Плюс обязателен, иначе edge-tts ругнётся на формат.
-    """
-    import asyncio
-
-    import edge_tts
-
-    async def run() -> None:
-        communicate = edge_tts.Communicate(text, voice, pitch=pitch, rate=rate)
-        await communicate.save(str(out_mp3))
-
-    asyncio.run(run())
-
-
-def list_edge_voices() -> int:
-    """Показать все русские голоса, доступные в edge-tts."""
-    import asyncio
-
-    import edge_tts
-
-    async def run() -> list:
-        return await edge_tts.list_voices()
-
-    try:
-        voices = asyncio.run(run())
-    except Exception as exc:  # noqa: BLE001
-        print(f"Не удалось получить список голосов: {exc}")
-        print("Нужен интернет — возможно, вы в Wi-Fi робота.")
-        return 1
-
-    russian = sorted((v for v in voices if v["Locale"].startswith("ru")),
-                     key=lambda v: v["ShortName"])
-    if not russian:
-        print("Русские голоса не найдены.")
-        return 1
-
-    print("Русские голоса edge-tts:\n")
-    for v in russian:
-        gender = {"Male": "мужской", "Female": "женский"}.get(v["Gender"], v["Gender"])
-        print(f"  {v['ShortName']:28} {gender}")
-    print("\nИспользовать:  --voice ru-RU-DmitryNeural")
-    return 0
-
-
-def synth_espeak(text: str, out_wav: Path, speed: int = 150,
-                 pitch: int = 50) -> None:
-    """Озвучить через espeak-ng (офлайн). pitch 0..99, speed — слов в минуту."""
-    binary = shutil.which("espeak-ng") or shutil.which("espeak")
-    if not binary:
-        raise RuntimeError(
-            "espeak-ng не найден.\n"
-            "  Linux:   sudo apt install espeak-ng\n"
-            "  macOS:   brew install espeak-ng\n"
-            "  Windows: https://github.com/espeak-ng/espeak-ng/releases"
-        )
-    subprocess.run(
-        [binary, "-v", "ru", "-s", str(speed), "-p", str(pitch),
-         "-w", str(out_wav), text],
-        check=True,
-    )
-
-
-def synth_system(text: str, out_wav: Path) -> None:
-    """Озвучить системным синтезатором через pyttsx3 (офлайн)."""
-    import pyttsx3
-
-    engine = pyttsx3.init()
-    russian = [v for v in engine.getProperty("voices")
-               if "ru" in (getattr(v, "languages", []) or [""])[0].__str__().lower()
-               or "russian" in v.name.lower()
-               or "irina" in v.name.lower()
-               or "milena" in v.name.lower()
-               or "yuri" in v.name.lower()]
-    if russian:
-        engine.setProperty("voice", russian[0].id)
-    else:
-        print("  ВНИМАНИЕ: русский системный голос не найден, "
-              "произношение будет неправильным.")
-    engine.save_to_file(text, str(out_wav))
-    engine.runAndWait()
-
-
 def make_one(key: str, text: str, engine: str, settings: dict, outdir: Path) -> Path:
-    target = outdir / f"{key}.wav"
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_path = Path(tmp)
-        if engine == "edge":
-            raw = tmp_path / "raw.mp3"
-            synth_edge(text, raw, settings["voice"],
-                       pitch=settings["pitch"], rate=settings["rate"])
-        elif engine == "espeak":
-            raw = tmp_path / "raw.wav"
-            synth_espeak(text, raw, speed=settings["espeak_speed"],
-                         pitch=settings["espeak_pitch"])
-        elif engine == "system":
-            raw = tmp_path / "raw.wav"
-            synth_system(text, raw)
-        else:
-            raise ValueError(f"Неизвестный движок: {engine}")
-
-        if not raw.is_file() or raw.stat().st_size == 0:
-            raise RuntimeError(f"Движок {engine} не создал аудио для '{text}'")
-
-        # Приводим к формату робота: 16 бит, 22050 Гц, моно.
-        convert(raw, target, rate=COZMO_RATE)
-
-    return target
+    """Озвучить одну фразу и положить в outdir/<key>.wav."""
+    return synthesize(text, outdir / f"{key}.wav", engine=engine,
+                      settings=settings, rate_hz=COZMO_RATE)
 
 
 def main() -> int:

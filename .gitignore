@@ -16,3 +16,8 @@ voices/
 
 # Распечатываемые маркеры — генерируются локально
 markers/
+
+# Личное: память и база знаний — у каждого своя
+memory.json
+knowledge/*
+!knowledge/README.md
