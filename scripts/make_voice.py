@@ -37,6 +37,7 @@
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -50,10 +51,11 @@ ROOT = Path(__file__).resolve().parent.parent
 PHRASES_FILE = ROOT / "phrases.ru.json"
 VOICE_DIR = ROOT / "voices"
 
-def make_one(key: str, text: str, engine: str, settings: dict, outdir: Path) -> Path:
+def make_one(key: str, text: str, engine: str, settings: dict, outdir: Path,
+             on_retry=None) -> Path:
     """Озвучить одну фразу и положить в outdir/<key>.wav."""
     return synthesize(text, outdir / f"{key}.wav", engine=engine,
-                      settings=settings, rate_hz=COZMO_RATE)
+                      settings=settings, rate_hz=COZMO_RATE, on_retry=on_retry)
 
 
 def diagnose() -> int:
@@ -222,14 +224,23 @@ def main() -> int:
             print(f"  = {key:14} уже есть (--force чтобы перезаписать)")
             skipped += 1
             continue
+        def on_retry(attempt, total, _key=key):
+            print(f"  ~ {_key:14} сервис не ответил, попытка {attempt + 1} из {total}")
+
         try:
-            make_one(key, text, args.engine, settings, args.outdir)
+            make_one(key, text, args.engine, settings, args.outdir,
+                     on_retry=on_retry)
         except Exception as exc:  # noqa: BLE001
             print(f"  ! {key:14} ОШИБКА: {exc}")
             failed += 1
             continue
         print(f"  + {key:14} {duration(target):4.1f} с  «{text}»")
         made += 1
+
+        # Короткая пауза: сервис Microsoft заметно охотнее отвечает,
+        # когда запросы не идут вплотную друг к другу.
+        if args.engine == "edge":
+            time.sleep(0.35)
 
     # index.json — чтобы Voice.text() могла показать фразу на экране.
     index_path = args.outdir / "index.json"

@@ -50,21 +50,62 @@ PRESETS = {
 DEFAULT_PRESET = "malchik"
 
 
+#: Сколько раз пробовать edge, прежде чем сдаться.
+EDGE_ATTEMPTS = 4
+
+#: Ошибки сервиса, которые проходят сами при повторе.
+_EDGE_RETRYABLE = ("No audio was received", "Connection", "timed out",
+                   "WSServerHandshakeError", "503", "429")
+
+
 def synth_edge(text: str, out_mp3: Path, voice: str,
-               pitch: str = "+0Hz", rate: str = "+0%") -> None:
+               pitch: str = "+0Hz", rate: str = "+0%",
+               attempts: int = EDGE_ATTEMPTS, on_retry=None) -> None:
     """Озвучить через edge-tts (нужен интернет).
 
     pitch в герцах ("+45Hz"), rate в процентах ("+10%").
     Знак обязателен, иначе edge-tts ругнётся на формат.
+
+    Сервис Microsoft регулярно отвечает «No audio was received» на
+    случайные запросы, особенно когда их шлют подряд без пауз. Ошибка
+    не в тексте и не в параметрах — тот же запрос через секунду
+    проходит. Поэтому повторяем с нарастающей паузой.
     """
     import asyncio
+    import time
 
     import edge_tts
 
     async def run() -> None:
         await edge_tts.Communicate(text, voice, pitch=pitch, rate=rate).save(str(out_mp3))
 
-    asyncio.run(run())
+    last = None
+    for attempt in range(1, attempts + 1):
+        try:
+            asyncio.run(run())
+        except Exception as exc:  # noqa: BLE001
+            last = exc
+            text_exc = f"{type(exc).__name__}: {exc}"
+            if not any(hint in text_exc for hint in _EDGE_RETRYABLE):
+                raise                       # не наш случай, повтор не поможет
+            if attempt == attempts:
+                break
+            if on_retry is not None:
+                on_retry(attempt, attempts)
+            time.sleep(0.8 * attempt)       # 0.8, 1.6, 2.4 секунды
+            continue
+
+        # Пустой файл сервис тоже иногда отдаёт — считаем это неудачей.
+        if out_mp3.is_file() and out_mp3.stat().st_size > 0:
+            return
+        last = RuntimeError("No audio was received")
+        if attempt == attempts:
+            break
+        if on_retry is not None:
+            on_retry(attempt, attempts)
+        time.sleep(0.8 * attempt)
+
+    raise last if last else RuntimeError("edge-tts не вернул звук")
 
 
 def synth_espeak(text: str, out_wav: Path, speed: int = 150, pitch: int = 50) -> None:
@@ -100,7 +141,7 @@ class SynthesisError(RuntimeError):
 
 def synthesize(text: str, target: Path, engine: str = "edge",
                settings: dict = None, rate_hz: int = 22050,
-               fallback: bool = True, on_fallback=None) -> Path:
+               fallback: bool = True, on_fallback=None, on_retry=None) -> Path:
     """Озвучить фразу и сохранить WAV в формате робота.
 
     Движок edge требует интернета, которого в Wi-Fi робота нет. Чтобы
@@ -114,7 +155,8 @@ def synthesize(text: str, target: Path, engine: str = "edge",
     target = Path(target)
 
     try:
-        return _synthesize_once(text, target, engine, settings, rate_hz)
+        return _synthesize_once(text, target, engine, settings, rate_hz,
+                                on_retry=on_retry)
     except Exception as exc:  # noqa: BLE001
         first = exc
         if not fallback or engine == "espeak":
@@ -157,8 +199,8 @@ def short_reason(exc: Exception) -> str:
 
 
 def _synthesize_once(text: str, target: Path, engine: str,
-                     settings: dict, rate_hz: int) -> Path:
-    """Один заход одним движком, без подстраховки."""
+                     settings: dict, rate_hz: int, on_retry=None) -> Path:
+    """Один заход одним движком, без подстраховки (но с повторами у edge)."""
     from .speech import convert
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -166,7 +208,8 @@ def _synthesize_once(text: str, target: Path, engine: str,
         if engine == "edge":
             raw = tmp_path / "raw.mp3"
             synth_edge(text, raw, settings["voice"],
-                       pitch=settings["pitch"], rate=settings["rate"])
+                       pitch=settings["pitch"], rate=settings["rate"],
+                       on_retry=on_retry)
         elif engine == "espeak":
             raw = tmp_path / "raw.wav"
             synth_espeak(text, raw, speed=settings["espeak_speed"],
