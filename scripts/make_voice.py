@@ -55,6 +55,78 @@ def make_one(key: str, text: str, engine: str, settings: dict, outdir: Path) -> 
                       settings=settings, rate_hz=COZMO_RATE)
 
 
+def diagnose() -> int:
+    """Проверить по шагам, что мешает озвучке."""
+    import shutil
+    import socket
+    import tempfile
+
+    from cozmo_up.tts import PRESETS, short_reason, synthesize
+
+    print("Проверяю озвучку\n")
+    problems = []
+
+    # 1. Интернет вообще
+    try:
+        socket.create_connection(("1.1.1.1", 53), timeout=4).close()
+        print("[ OK ]  интернет есть")
+        online = True
+    except OSError:
+        print("[FAIL]  интернета нет")
+        print("        вы не в Wi-Fi робота? там интернета не бывает")
+        problems.append("интернет")
+        online = False
+
+    # 2. Движок edge
+    if online:
+        tmp = Path(tempfile.mkdtemp()) / "edge.wav"
+        try:
+            synthesize("проверка", tmp, engine="edge",
+                       settings=PRESETS[DEFAULT_PRESET], fallback=False)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[FAIL]  edge не работает: {short_reason(exc)}")
+            problems.append("edge")
+        else:
+            print("[ OK ]  edge работает — голос будет хороший")
+    else:
+        print("[ -- ]  edge пропущен, он требует интернета")
+
+    # 3. Движок espeak
+    binary = shutil.which("espeak-ng") or shutil.which("espeak")
+    if not binary:
+        print("[FAIL]  espeak-ng не установлен")
+        print("        Windows: https://github.com/espeak-ng/espeak-ng/releases")
+        print("                 скачайте espeak-ng-X.Y.msi и установите,")
+        print("                 потом ЗАКРОЙТЕ и откройте PowerShell заново")
+        print("        macOS:   brew install espeak-ng")
+        print("        Linux:   sudo apt install espeak-ng")
+        problems.append("espeak")
+    else:
+        tmp = Path(tempfile.mkdtemp()) / "espeak.wav"
+        try:
+            synthesize("проверка", tmp, engine="espeak",
+                       settings=PRESETS[DEFAULT_PRESET], fallback=False)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[FAIL]  espeak найден ({binary}), но не работает: "
+                  f"{short_reason(exc)}")
+            problems.append("espeak")
+        else:
+            print(f"[ OK ]  espeak работает ({binary}) — голос роботичный, "
+                  "зато офлайн")
+
+    print()
+    if "edge" not in problems and "интернет" not in problems:
+        print("Всё хорошо. Запускайте:")
+        print("  python scripts\\make_voice.py --preset kozmo --force")
+    elif "espeak" not in problems:
+        print("Интернета нет, но espeak работает. Запускайте офлайн:")
+        print("  python scripts\\make_voice.py --engine espeak --preset kozmo --force")
+    else:
+        print("Озвучить пока нечем. Нужно либо вернуть интернет,")
+        print("либо поставить espeak-ng по ссылке выше.")
+    return 1 if problems else 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -73,6 +145,8 @@ def main() -> int:
                         help="показать все русские голоса edge-tts и выйти")
     parser.add_argument("--list-presets", action="store_true",
                         help="показать готовые настройки голоса и выйти")
+    parser.add_argument("--diagnose", action="store_true",
+                        help="проверить, что мешает озвучке, и выйти")
     parser.add_argument("--phrases", type=Path, default=PHRASES_FILE,
                         help="JSON с фразами {ключ: текст}")
     parser.add_argument("--outdir", type=Path, default=VOICE_DIR,
@@ -94,6 +168,9 @@ def main() -> int:
 
     if args.list_voices:
         return list_edge_voices()
+
+    if args.diagnose:
+        return diagnose()
 
     # Пресет + возможные переопределения отдельными флагами.
     settings = dict(PRESETS[args.preset])
@@ -152,10 +229,26 @@ def main() -> int:
                           encoding="utf-8")
 
     print(f"\nГотово: создано {made}, пропущено {skipped}, ошибок {failed}")
-    if failed and args.engine == "edge":
-        print("Если ошибки сетевые — вы, возможно, уже в Wi-Fi робота "
-              "(там нет интернета).")
-        print("Вернитесь в обычную сеть или используйте --engine espeak.")
+
+    if failed:
+        print()
+        print("Ни одна фраза не озвучилась. Что делать:")
+        print()
+        if args.engine == "edge":
+            print("  Движок edge работает по интернету. Проверьте:")
+            print("    • вы не в Wi-Fi робота? там интернета нет")
+            print("    • интернет вообще есть? откройте любой сайт")
+            print()
+        print("  Запасной движок espeak работает офлайн, но его надо поставить:")
+        print("    Windows: https://github.com/espeak-ng/espeak-ng/releases")
+        print("             скачайте espeak-ng-X.Y.msi, установите,")
+        print("             потом ЗАКРОЙТЕ и откройте PowerShell заново")
+        print("    macOS:   brew install espeak-ng")
+        print("    Linux:   sudo apt install espeak-ng")
+        print()
+        print("  Проверить, что именно не так:")
+        print("    python scripts\\make_voice.py --diagnose")
+
     return 1 if failed else 0
 
 

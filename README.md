@@ -639,9 +639,15 @@ Python.
 **`Не найден шрифт с кириллицей`**
 Укажите свой TTF: `COZMO_FONT=/путь/к/DejaVuSans.ttf python examples/08_russian_screen.py`
 
-**`python scripts/make_voice.py` падает с сетевой ошибкой**
-Вы уже в Wi-Fi робота — там нет интернета. Вернитесь в обычную сеть
-или используйте офлайн-движок: `--engine espeak`.
+**Озвучка не работает**
+Запустите `python scripts/make_voice.py --diagnose` — он проверит интернет,
+`edge` и `espeak` по отдельности и скажет, что именно сломано.
+
+Чаще всего: вы уже в Wi-Fi робота (там нет интернета), а офлайн-движок
+espeak-ng не установлен. Поставьте его — тогда озвучка будет работать
+всегда, даже рядом с роботом:
+Windows — https://github.com/espeak-ng/espeak-ng/releases (файл `.msi`),
+потом закройте и откройте PowerShell заново.
 
 ---
 

@@ -71,12 +71,7 @@ def synth_espeak(text: str, out_wav: Path, speed: int = 150, pitch: int = 50) ->
     """Озвучить через espeak-ng (офлайн). pitch 0..99, speed — слов в минуту."""
     binary = shutil.which("espeak-ng") or shutil.which("espeak")
     if not binary:
-        raise RuntimeError(
-            "espeak-ng не найден.\n"
-            "  Windows: https://github.com/espeak-ng/espeak-ng/releases\n"
-            "  macOS:   brew install espeak-ng\n"
-            "  Linux:   sudo apt install espeak-ng"
-        )
+        raise RuntimeError("espeak-ng не установлен")
     subprocess.run(
         [binary, "-v", "ru", "-s", str(speed), "-p", str(pitch), "-w", str(out_wav), text],
         check=True,
@@ -121,9 +116,9 @@ def synthesize(text: str, target: Path, engine: str = "edge",
     try:
         return _synthesize_once(text, target, engine, settings, rate_hz)
     except Exception as exc:  # noqa: BLE001
+        first = exc
         if not fallback or engine == "espeak":
-            raise SynthesisError(
-                f"Движок {engine} не справился: {exc}") from exc
+            raise SynthesisError(f"{engine}: {short_reason(exc)}") from exc
 
     if on_fallback is not None:
         on_fallback(engine, "espeak")
@@ -131,11 +126,34 @@ def synthesize(text: str, target: Path, engine: str = "edge",
     try:
         return _synthesize_once(text, target, "espeak", settings, rate_hz)
     except Exception as exc:  # noqa: BLE001
+        # Обе причины обязательно рядом: раньше тут была видна только
+        # вторая, и настоящая поломка (почему не сработал основной
+        # движок) оставалась невидимой.
         raise SynthesisError(
-            f"Ни {engine}, ни espeak не смогли озвучить: {exc}\n"
-            "Для espeak нужен espeak-ng: "
-            "https://github.com/espeak-ng/espeak-ng/releases"
-        ) from exc
+            f"{engine}: {short_reason(first)}; "
+            f"запасной espeak: {short_reason(exc)}"
+        ) from first
+
+
+#: Сетевые ошибки приходят огромными трассировками — режем до сути.
+_NETWORK_HINTS = (
+    "getaddrinfo", "Name or service", "Temporary failure", "nodename",
+    "ConnectionError", "Cannot connect", "timed out", "TimeoutError",
+    "SSL", "certificate", "Proxy", "proxy", "Forbidden", "refused",
+    "NoSuchNode", "Unable to connect",
+)
+
+
+def short_reason(exc: Exception) -> str:
+    """Короткая человеческая причина вместо простыни трассировки."""
+    text = str(exc).strip().replace("\n", " ")
+    name = type(exc).__name__
+
+    if any(hint in text or hint in name for hint in _NETWORK_HINTS):
+        return "нет связи с сервером синтеза (интернет?)"
+    if not text:
+        return name
+    return text[:120]
 
 
 def _synthesize_once(text: str, target: Path, engine: str,
