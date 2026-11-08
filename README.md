@@ -185,10 +185,32 @@ python scripts/make_voice.py
 | `espeak` | роботизированное (Козмо идёт) | не нужен | `apt/brew install espeak-ng` |
 | `system` | зависит от ОС | не нужен | `pip install pyttsx3` + русский голос |
 
-Голоса edge: `ru-RU-SvetlanaNeural` (по умолчанию) и `ru-RU-DmitryNeural`,
-выбирается флагом `--voice`. Одну фразу можно озвучить так:
+#### Какой голос
+
+Выбирается пресетом `--preset`:
+
+| Пресет | Голос |
+|---|---|
+| `malchik` (по умолчанию) | мальчишеский: мужской голос, поднятый по тону |
+| `kozmo` | как настоящий Козмо: высокий, быстрый, мультяшный |
+| `malysh` | совсем малыш: очень высокий |
+| `vzroslyj` | обычный мужской |
+| `devushka` | обычный женский |
 
 ```bash
+python scripts/make_voice.py --preset kozmo --force
+python scripts/make_voice.py --list-presets      # что есть
+python scripts/make_voice.py --list-voices       # все русские голоса edge-tts
+```
+
+`--force` обязателен при смене голоса: без него уже готовые файлы
+пропускаются и голос не изменится.
+
+Можно и вручную, поверх пресета:
+
+```bash
+python scripts/make_voice.py --pitch +60Hz --rate +15% --force
+python scripts/make_voice.py --voice ru-RU-DmitryNeural --force
 python scripts/make_voice.py --text "Я умный робот" --key umnyj
 ```
 
