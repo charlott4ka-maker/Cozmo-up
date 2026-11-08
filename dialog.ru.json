@@ -1,0 +1,185 @@
+{
+  "_comment": "Правила диалога. Проверяются сверху вниз, срабатывает первое, у которого хоть одно слово из keywords встретилось в распознанной фразе. say — ключ из phrases.ru.json, face — выражение из pycozmo.expressions, action — что сделать телом.",
+  "rules": [
+    {
+      "keywords": [
+        "привет",
+        "здравствуй",
+        "хай"
+      ],
+      "say": "privet2",
+      "face": "Happiness"
+    },
+    {
+      "keywords": [
+        "пока",
+        "до свидания"
+      ],
+      "say": "poka",
+      "face": "Sadness",
+      "action": "quit"
+    },
+    {
+      "keywords": [
+        "спать",
+        "спокойной ночи"
+      ],
+      "say": "spokojnoj_nochi",
+      "face": "Asleep",
+      "action": "quit"
+    },
+    {
+      "keywords": [
+        "вперёд",
+        "поехали",
+        "езжай"
+      ],
+      "say": "vpered",
+      "action": "forward"
+    },
+    {
+      "keywords": [
+        "назад"
+      ],
+      "say": "nazad",
+      "action": "back"
+    },
+    {
+      "keywords": [
+        "налево",
+        "лево"
+      ],
+      "say": "nalevo",
+      "action": "left"
+    },
+    {
+      "keywords": [
+        "направо",
+        "право"
+      ],
+      "say": "napravo",
+      "action": "right"
+    },
+    {
+      "keywords": [
+        "стоп",
+        "стой"
+      ],
+      "say": "stoj",
+      "action": "stop"
+    },
+    {
+      "keywords": [
+        "танцуй",
+        "танец"
+      ],
+      "say": "tancuyu",
+      "face": "Excitement",
+      "action": "dance"
+    },
+    {
+      "keywords": [
+        "играть",
+        "поиграем"
+      ],
+      "say": "skuchno",
+      "face": "Excitement",
+      "action": "dance"
+    },
+    {
+      "keywords": [
+        "как дела",
+        "дела"
+      ],
+      "say": "kak_dela",
+      "face": "Happiness"
+    },
+    {
+      "keywords": [
+        "кто ты",
+        "как тебя зовут"
+      ],
+      "say": "kto_ty",
+      "face": "Happiness"
+    },
+    {
+      "keywords": [
+        "что умеешь",
+        "умеешь"
+      ],
+      "say": "chto_umeesh"
+    },
+    {
+      "keywords": [
+        "сколько лет",
+        "возраст"
+      ],
+      "say": "skolko_let",
+      "face": "Amazement"
+    },
+    {
+      "keywords": [
+        "люблю"
+      ],
+      "say": "lyublyu_tebya",
+      "face": "Happiness"
+    },
+    {
+      "keywords": [
+        "заряд",
+        "батарея"
+      ],
+      "action": "battery"
+    },
+    {
+      "keywords": [
+        "подними",
+        "ковш вверх"
+      ],
+      "say": "horosho",
+      "action": "lift_up"
+    },
+    {
+      "keywords": [
+        "опусти",
+        "ковш вниз"
+      ],
+      "say": "horosho",
+      "action": "lift_down"
+    },
+    {
+      "keywords": [
+        "смотри",
+        "посмотри"
+      ],
+      "say": "vizhu_tebya",
+      "action": "look_up"
+    },
+    {
+      "keywords": [
+        "да"
+      ],
+      "say": "da",
+      "face": "Happiness"
+    },
+    {
+      "keywords": [
+        "нет"
+      ],
+      "say": "net",
+      "face": "Disappointment"
+    },
+    {
+      "keywords": [
+        "хорошо",
+        "молодец"
+      ],
+      "say": "ura",
+      "face": "Excitement"
+    }
+  ],
+  "fallback": {
+    "say": "ne_ponyal",
+    "face": "Confusion"
+  }
+}

@@ -8,3 +8,5 @@ Pillow>=9.0.0
 # miniaudio декодирует mp3/ogg/flac без системного ffmpeg.
 edge-tts>=7.0.0
 miniaudio>=1.59
+vosk>=0.3.45
+sounddevice>=0.4.6
