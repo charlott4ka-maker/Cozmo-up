@@ -25,6 +25,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from cozmo_up.ai import ACTIONS, SYSTEM_PROMPT, Memory  # noqa: E402
+from cozmo_up.cli import script_cmd  # noqa: E402
 from cozmo_up.local_ai import (  # noqa: E402
     DEFAULT_HOST, OWN_MODEL, ask_model, create_model, free_memory_gb,
     is_running, list_models, make_modelfile, size_advice,
@@ -52,6 +53,7 @@ def need_ollama(host: str) -> bool:
 
 
 def cmd_check(args) -> int:
+    print(f"Папка: {Path.cwd()}\n")
     print("=== Железо ===")
     free = free_memory_gb()
     print(" ", size_advice(free))
@@ -78,8 +80,8 @@ def cmd_check(args) -> int:
         own = "  <- ваша собственная" if m["name"].startswith(OWN_MODEL) else ""
         print(f"  {m['name']:30} {m['size_gb']:5} ГБ  {m['parameter_size']:>6}{own}")
     print()
-    print("Сравнить их на русском:   python scripts/local_ai.py test")
-    print("Собрать свою модель:      python scripts/local_ai.py build")
+    print("Сравнить их на русском:   " + script_cmd("scripts/local_ai.py", "test"))
+    print("Собрать свою модель:      " + script_cmd("scripts/local_ai.py", "build"))
     return 0
 
 
@@ -132,7 +134,8 @@ def cmd_test(args) -> int:
         print("Качество оцените сами по ответам выше — цифры про скорость,")
         print("а не про ум. Выбранную модель запускайте так:")
         best = min(totals, key=totals.get)
-        print(f"  python examples\\18_ai.py --backend ollama --model {best}")
+        print("  " + script_cmd("examples/18_ai.py", "--backend", "ollama",
+                                 "--model", best))
     return 0
 
 
@@ -181,7 +184,8 @@ def cmd_build(args) -> int:
 
     print(f"\nГотово. Модель «{args.name}» теперь в списке ollama list.")
     print("Запускать так:")
-    print(f"  python examples\\18_ai.py --backend ollama --model {args.name}")
+    print("  " + script_cmd("examples/18_ai.py", "--backend", "ollama",
+                            "--model", args.name))
     print()
     print("Пересобирайте её снова, когда научите Козмо новым фактам —")
     print("тогда они окажутся внутри самой модели, а не подставятся сбоку.")

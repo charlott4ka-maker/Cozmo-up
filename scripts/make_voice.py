@@ -40,6 +40,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from cozmo_up.cli import script_cmd  # noqa: E402
 from cozmo_up.speech import COZMO_RATE, duration  # noqa: E402
 from cozmo_up.tts import (  # noqa: E402
     DEFAULT_PRESET, EDGE_VOICES, PRESETS, list_edge_voices, synthesize,
@@ -63,7 +64,8 @@ def diagnose() -> int:
 
     from cozmo_up.tts import PRESETS, short_reason, synthesize
 
-    print("Проверяю озвучку\n")
+    print("Проверяю озвучку")
+    print(f"Папка: {Path.cwd()}\n")
     problems = []
 
     # 1. Интернет вообще
@@ -116,11 +118,21 @@ def diagnose() -> int:
 
     print()
     if "edge" not in problems and "интернет" not in problems:
-        print("Всё хорошо. Запускайте:")
-        print("  python scripts\\make_voice.py --preset kozmo --force")
+        if "espeak" in problems:
+            print("Озвучка работает, пока есть интернет. Запускайте:")
+        else:
+            print("Всё хорошо. Запускайте:")
+        print("  " + script_cmd("scripts/make_voice.py",
+                                "--preset", "kozmo", "--force"))
+        if "espeak" in problems:
+            print()
+            print("Но в Wi-Fi робота интернета нет, и там голос работать не будет.")
+            print("Поставьте espeak-ng по ссылке выше — он озвучивает офлайн,")
+            print("и речь перестанет зависеть от сети совсем.")
     elif "espeak" not in problems:
         print("Интернета нет, но espeak работает. Запускайте офлайн:")
-        print("  python scripts\\make_voice.py --engine espeak --preset kozmo --force")
+        print("  " + script_cmd("scripts/make_voice.py", "--engine", "espeak",
+                                "--preset", "kozmo", "--force"))
     else:
         print("Озвучить пока нечем. Нужно либо вернуть интернет,")
         print("либо поставить espeak-ng по ссылке выше.")
@@ -247,7 +259,7 @@ def main() -> int:
         print("    Linux:   sudo apt install espeak-ng")
         print()
         print("  Проверить, что именно не так:")
-        print("    python scripts\\make_voice.py --diagnose")
+        print("    " + script_cmd("scripts/make_voice.py", "--diagnose"))
 
     return 1 if failed else 0
 

@@ -308,7 +308,9 @@ class OllamaBackend:
                 "  1. Поставьте её: https://ollama.com/download\n"
                 "  2. Запустите (на Windows она висит значком в трее)\n"
                 "  3. Скачайте модель: ollama pull qwen2.5:3b\n"
-                "Проверить всё сразу: python scripts/local_ai.py check"
+                "Проверить всё сразу: "
+                + __import__("cozmo_up.cli", fromlist=["cli"]).script_cmd(
+                    "scripts/local_ai.py", "check")
             )
 
         models = list_models(self.host)
