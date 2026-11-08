@@ -112,6 +112,9 @@ python examples/04_camera.py             # кадры с камеры → out/*.
 python examples/05_lights_and_sound.py   # лампочки, фонарик, громкость
 python examples/06_animations.py         # список и запуск родных анимаций
 python examples/07_react.py              # своя логика: реакция на обрыв и подъём
+python examples/08_russian_screen.py     # русский текст на экране
+python examples/09_russian_speech.py     # робот говорит по-русски
+python examples/10_russian_bot.py        # всё вместе: ездит, говорит, реагирует
 ```
 
 Для `02`, `07` снимите робота с базы и поставьте на ровную поверхность.
@@ -122,14 +125,100 @@ python examples/07_react.py              # своя логика: реакция
 
 ---
 
+## Русский язык
+
+Родного русского у Cozmo нет вообще: в ассетах лежат ровно четыре голоса
+Acapela — `co-USEnglish-Ryan`, `co-French-Bruno`, `co-German-Klaus`,
+`co-Japanese-Sakura` (`cozmo_resources/tts/Voices/`), а локализация
+приложения есть только для `en-US`, `de-DE`, `fr-FR`, `ja-JP`. Вдобавок
+синтез речи выполнялся в приложении на телефоне, и pycozmo его не
+реализует вовсе.
+
+Поэтому русский делаем своими силами — и получается полноценно.
+
+### Текст на экране
+
+Встроенный шрифт PIL знает только латиницу. `cozmo_up.screen` находит в
+системе TTF-шрифт с кириллицей (DejaVu, Arial, Segoe UI, Liberation...),
+проверяет, что русские буквы в нём действительно есть, и сам подбирает
+кегль под размер экрана:
+
+```python
+from cozmo_up.screen import render_text
+cli.display_image(render_text("ПРИВЕТ!"), duration=2.0)
+cli.display_image(render_text("Батарея\n3.92 В"), duration=2.0)
+```
+
+Если шрифт не нашёлся — укажите свой: `COZMO_FONT=/путь/к/шрифту.ttf`.
+
+### Речь
+
+Фразы озвучиваются заранее на компьютере и проигрываются роботу как WAV.
+
+```bash
+# При интернете, ДО подключения к Wi-Fi робота:
+python scripts/make_voice.py
+```
+
+Скрипт читает `phrases.ru.json`, синтезирует каждую фразу и сохраняет в
+`voices/` в формате робота (16 бит, 22050 Гц, моно). Движки:
+
+| `--engine` | качество русского | интернет | установка |
+|---|---|---|---|
+| `edge` (по умолчанию) | отличное, живой голос | нужен | `pip install edge-tts miniaudio` |
+| `espeak` | роботизированное (Козмо идёт) | не нужен | `apt/brew install espeak-ng` |
+| `system` | зависит от ОС | не нужен | `pip install pyttsx3` + русский голос |
+
+Голоса edge: `ru-RU-SvetlanaNeural` (по умолчанию) и `ru-RU-DmitryNeural`,
+выбирается флагом `--voice`. Одну фразу можно озвучить так:
+
+```bash
+python scripts/make_voice.py --text "Я умный робот" --key umnyj
+```
+
+Дальше в коде:
+
+```python
+from cozmo_up.speech import Voice
+
+voice = Voice()
+voice.say(cli, "privet")            # проиграть
+voice.say_and_show(cli, "privet")   # проиграть и показать текст на экране
+```
+
+### Два подводных камня, на которые мы наступили
+
+**Экран — 128x32, а не 128x64.** Физическая матрица 128x64, но пакет
+`DisplayImage` несёт 128x32 (робот растягивает строки). При этом
+`pycozmo.expressions.*.render()` отдаёт 128x64, и `cli.display_image()` на
+нём падает с `ValueError: Invalid image dimensions`. Прогоняйте картинки
+через `cozmo_up.screen.to_screen()`:
+
+```python
+cli.display_image(to_screen(pycozmo.expressions.Happiness().render()))
+```
+
+**Баг в pycozmo 0.8.0: `play_audio` падает на громком звуке.** Её u-law
+кодировщик переполняется на сэмплах ниже -31612 и выдаёт байт 256 —
+`ValueError: byte must be in range(0, 256)`. Обычный синтез речи в это
+попадает регулярно. Импорт `cozmo_up.speech` автоматически ставит патч
+(`patch_pycozmo_audio()`), а `convert()` дополнительно ограничивает
+амплитуду при генерации.
+
+---
+
 ## Как это устроено
 
 ```
 cozmo_up/helpers.py   обёртки: connect(), robot_info()
+cozmo_up/screen.py    экран 128x32, русский текст, поиск шрифта
+cozmo_up/speech.py    русская речь, конвертация аудио, патч бага pycozmo
 examples/             пронумерованные примеры от простого к сложному
 scripts/setup.sh      установка окружения
 scripts/doctor.py     диагностика: Python, pycozmo, ассеты, сеть робота
-requirements.txt      pycozmo 0.8.0 + Pillow
+scripts/make_voice.py генерация русских фраз в voices/
+phrases.ru.json       словарь фраз {ключ: текст}
+requirements.txt      pycozmo 0.8.0 + Pillow + edge-tts + miniaudio
 ```
 
 pycozmo подключается к роботу по UDP (вариант протокола selective-repeat ARQ) и
@@ -150,7 +239,7 @@ with pycozmo.connect() as cli:
     cli.drive_wheels(50.0, 50.0, duration=1.0)      # мм/с, макс. ~200
     cli.set_head_angle(0.0)                         # радианы, от -25° до +44.5°
     cli.set_lift_height(92.0)                       # мм, от 32 до 92
-    cli.display_image(pycozmo.expressions.Happiness().render(), duration=2.0)
+    cli.display_image(to_screen(pycozmo.expressions.Happiness().render()), duration=2.0)
     cli.set_all_backpack_lights(pycozmo.lights.green_light)
     cli.set_head_light(True)                        # фонарик над камерой
     cli.enable_camera(enable=True, color=False)
@@ -195,6 +284,20 @@ version-specific, что-то может работать иначе. Чаще �
 
 **VPN / корпоративная сеть**
 Отключите VPN — он перехватывает трафик к `172.31.1.1`.
+
+**`ValueError: Invalid image dimensions. Only 128x32 images are supported`**
+Картинку надо привести к 128x32: `cozmo_up.screen.to_screen(image)`.
+
+**`ValueError: byte must be in range(0, 256)` при play_audio**
+Баг кодировщика pycozmo на громком звуке. Добавьте `import cozmo_up.speech` —
+он ставит патч автоматически.
+
+**`Не найден шрифт с кириллицей`**
+Укажите свой TTF: `COZMO_FONT=/путь/к/DejaVuSans.ttf python examples/08_russian_screen.py`
+
+**`python scripts/make_voice.py` падает с сетевой ошибкой**
+Вы уже в Wi-Fi робота — там нет интернета. Вернитесь в обычную сеть
+или используйте офлайн-движок: `--engine espeak`.
 
 ---
 

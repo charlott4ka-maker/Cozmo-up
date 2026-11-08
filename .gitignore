@@ -10,3 +10,6 @@ out/
 *.png
 !docs/*.png
 .DS_Store
+
+# Сгенерированная озвучка — делается локально скриптом scripts/make_voice.py
+voices/

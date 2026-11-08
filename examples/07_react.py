@@ -9,9 +9,14 @@
 а если его подняли — закрывает глаза от испуга.
 """
 
+import sys
 import time
+from pathlib import Path
 
 import pycozmo
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from cozmo_up.screen import to_screen  # noqa: E402
 
 state = {"cliff": False, "picked_up": False}
 
@@ -47,14 +52,14 @@ def main() -> int:
                 if driving:
                     cli.stop_all_motors()
                     driving = False
-                cli.display_image(pycozmo.expressions.Fear().render())
+                cli.display_image(to_screen(pycozmo.expressions.Fear().render()))
                 cli.set_all_backpack_lights(pycozmo.lights.red_light)
 
             elif state["cliff"]:
                 if driving:
                     cli.stop_all_motors()
                     driving = False
-                cli.display_image(pycozmo.expressions.Surprise().render())
+                cli.display_image(to_screen(pycozmo.expressions.Surprise().render()))
                 cli.set_all_backpack_lights(pycozmo.lights.red_light)
                 # Отъехать назад от края.
                 cli.drive_wheels(-40.0, -40.0, duration=0.8)
@@ -63,7 +68,7 @@ def main() -> int:
                 if not driving:
                     cli.drive_wheels(40.0, 40.0)
                     driving = True
-                cli.display_image(pycozmo.expressions.Happiness().render())
+                cli.display_image(to_screen(pycozmo.expressions.Happiness().render()))
                 cli.set_all_backpack_lights(pycozmo.lights.green_light)
 
             time.sleep(0.2)
