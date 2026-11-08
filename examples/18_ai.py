@@ -11,16 +11,20 @@
 КАК ДАТЬ ЕМУ СВОЮ БАЗУ:
     положите .txt или .md файлы в папку knowledge/ — он начнёт их знать
 
-ПЕРЕД ПЕРВЫМ ЗАПУСКОМ (при обычном интернете):
-    python scripts/make_voice.py
-    python examples/11_dialog.py --setup
-    setx ANTHROPIC_API_KEY "sk-ant-..."        (Windows, потом новый PowerShell)
+ПО УМОЛЧАНИЮ ДУМАЕТ ЛОКАЛЬНО — модель крутится на вашем компьютере через
+Ollama. Ни интернета, ни ключей, ни оплаты. Настройка и выбор модели:
+    python scripts/local_ai.py check
 
-ПРО ИНТЕРНЕТ. Claude работает по сети, а в Wi-Fi робота её нет. Два выхода:
-    1. Раздать интернет с телефона по USB — Wi-Fi остаётся на Козмо,
-       интернет идёт через кабель. Ничего покупать не надо.
-    2. Поставить Ollama и запускать с --backend ollama — работает совсем
-       офлайн, но по-русски говорит заметно хуже.
+ПЕРЕД ПЕРВЫМ ЗАПУСКОМ (при обычном интернете, один раз):
+    python scripts/make_voice.py            # голос
+    python examples/11_dialog.py --setup    # распознавание речи
+    ollama pull qwen2.5:3b                  # сама модель
+
+ГОЛОС тоже умеет офлайн: добавьте --tts espeak, и интернет не нужен совсем.
+
+ЕСЛИ ХОЧЕТСЯ УМНЕЕ: --backend claude работает по сети и говорит по-русски
+заметно лучше, но нужен ключ ANTHROPIC_API_KEY и интернет, которого в
+Wi-Fi робота нет (решается раздачей с телефона по USB).
 
 Проверить всё без робота и без микрофона:
     python examples/18_ai.py --text
@@ -48,8 +52,9 @@ ACTION_MAP = {
 def build_args():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--backend", choices=["claude", "ollama"], default="claude",
-                        help="кто придумывает ответы (по умолчанию claude)")
+    parser.add_argument("--backend", choices=["ollama", "claude"], default="ollama",
+                        help="кто придумывает ответы. ollama — своя модель на "
+                             "вашем компьютере (по умолчанию); claude — по сети")
     parser.add_argument("--model", default=None, help="конкретная модель")
     parser.add_argument("--tts", choices=["edge", "espeak", "system"], default="edge",
                         help="чем озвучивать ответы (espeak работает офлайн)")
@@ -68,8 +73,8 @@ def make_brain(args) -> AIBrain:
     kwargs = {"model": args.model} if args.model else {}
     backend = make_backend(args.backend, **kwargs)
     brain = AIBrain(backend, memory=Memory(), knowledge=Knowledge())
-    print(f"Мозг: {backend.name}"
-          + (f" ({args.model})" if args.model else ""))
+    model_name = getattr(backend, "model", None)
+    print(f"Мозг: {backend.name}" + (f" ({model_name})" if model_name else ""))
     print(f"Помнит фактов: {len(brain.memory.facts)}")
     print(f"База знаний: {len(brain.knowledge.chunks)} кусочков "
           f"из папки knowledge/")

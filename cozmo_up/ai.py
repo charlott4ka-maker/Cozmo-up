@@ -293,10 +293,35 @@ class OllamaBackend:
 
     name = "ollama"
 
-    def __init__(self, model: str = "qwen2.5:3b",
+    def __init__(self, model: str = None,
                  host: str = "http://127.0.0.1:11434") -> None:
-        self.model = model
         self.host = host.rstrip("/")
+        self.model = model or self._pick_model()
+
+    def _pick_model(self) -> str:
+        """Выбрать модель самостоятельно: сначала свою, потом самую лёгкую."""
+        from .local_ai import OWN_MODEL, is_running, list_models
+
+        if not is_running(self.host):
+            raise RuntimeError(
+                "Ollama не отвечает.\n"
+                "  1. Поставьте её: https://ollama.com/download\n"
+                "  2. Запустите (на Windows она висит значком в трее)\n"
+                "  3. Скачайте модель: ollama pull qwen2.5:3b\n"
+                "Проверить всё сразу: python scripts/local_ai.py check"
+            )
+
+        models = list_models(self.host)
+        if not models:
+            raise RuntimeError(
+                "В Ollama нет ни одной модели. Скачайте первую:\n"
+                "  ollama pull qwen2.5:3b"
+            )
+
+        own = [m for m in models if m["name"].startswith(OWN_MODEL)]
+        if own:
+            return own[0]["name"]
+        return min(models, key=lambda m: m["size_gb"])["name"]
 
     def reply(self, system: str, messages: List[dict]) -> str:
         import urllib.error
