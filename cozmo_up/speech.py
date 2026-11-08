@@ -178,7 +178,7 @@ class LiveVoice:
     """
 
     def __init__(self, engine: str = "edge", preset: str = None,
-                 cache_dir: str | Path = "voices/cache") -> None:
+                 cache_dir: str | Path = "voices/cache", on_note=None) -> None:
         from . import tts
 
         self.engine = engine
@@ -186,6 +186,8 @@ class LiveVoice:
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._tts = tts
+        #: Куда сообщить, если пришлось перейти на офлайн-движок.
+        self.on_note = on_note
 
     def path_for(self, text: str) -> Path:
         import hashlib
@@ -197,8 +199,13 @@ class LiveVoice:
         """Получить WAV для фразы, синтезировав при необходимости."""
         target = self.path_for(text)
         if not target.is_file():
+            def note(was, now):
+                if self.on_note:
+                    self.on_note(f"{was} недоступен (нет интернета?), "
+                                 f"озвучиваю через {now}")
             self._tts.synthesize(text, target, engine=self.engine,
-                                 settings=self.settings, rate_hz=COZMO_RATE)
+                                 settings=self.settings, rate_hz=COZMO_RATE,
+                                 on_fallback=note)
         return target
 
     def say(self, cli, text: str) -> None:

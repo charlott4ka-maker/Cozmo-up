@@ -288,7 +288,7 @@ class RobotWorker(threading.Thread):
             return
         self.log(f"говорю: «{text}»")
         try:
-            voice = LiveVoice(engine=engine, preset=preset)
+            voice = LiveVoice(engine=engine, preset=preset, on_note=self.log)
             voice.say(self.cli, text)
         except Exception as exc:  # noqa: BLE001
             self.emit("error", f"Не получилось озвучить: {exc}")

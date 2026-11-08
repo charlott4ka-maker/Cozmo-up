@@ -99,16 +99,49 @@ def synth_system(text: str, out_wav: Path) -> None:
     engine.runAndWait()
 
 
+class SynthesisError(RuntimeError):
+    """Движок синтеза не справился."""
+
+
 def synthesize(text: str, target: Path, engine: str = "edge",
-               settings: dict = None, rate_hz: int = 22050) -> Path:
+               settings: dict = None, rate_hz: int = 22050,
+               fallback: bool = True, on_fallback=None) -> Path:
     """Озвучить фразу и сохранить WAV в формате робота.
+
+    Движок edge требует интернета, которого в Wi-Fi робота нет. Чтобы
+    речь не отваливалась совсем, при его отказе автоматически берётся
+    офлайн-движок espeak — голос хуже, но робот продолжает говорить.
+    Отключается параметром fallback=False.
 
     Возвращает путь к готовому файлу.
     """
-    from .speech import convert
-
     settings = settings or PRESETS[DEFAULT_PRESET]
     target = Path(target)
+
+    try:
+        return _synthesize_once(text, target, engine, settings, rate_hz)
+    except Exception as exc:  # noqa: BLE001
+        if not fallback or engine == "espeak":
+            raise SynthesisError(
+                f"Движок {engine} не справился: {exc}") from exc
+
+    if on_fallback is not None:
+        on_fallback(engine, "espeak")
+
+    try:
+        return _synthesize_once(text, target, "espeak", settings, rate_hz)
+    except Exception as exc:  # noqa: BLE001
+        raise SynthesisError(
+            f"Ни {engine}, ни espeak не смогли озвучить: {exc}\n"
+            "Для espeak нужен espeak-ng: "
+            "https://github.com/espeak-ng/espeak-ng/releases"
+        ) from exc
+
+
+def _synthesize_once(text: str, target: Path, engine: str,
+                     settings: dict, rate_hz: int) -> Path:
+    """Один заход одним движком, без подстраховки."""
+    from .speech import convert
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
