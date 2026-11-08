@@ -9,26 +9,52 @@ Set-Location (Split-Path -Parent $PSScriptRoot)
 Write-Host "Папка проекта: $(Get-Location)`n"
 
 # pycozmo 0.8.0 не работает на Python 3.13+, ищем подходящую версию.
-$py = $null
-foreach ($v in @("3.12", "3.11", "3.10")) {
-    & py "-$v" --version 2>$null | Out-Null
-    if ($LASTEXITCODE -eq 0) { $py = $v; break }
+# Сначала через лаунчер py, потом по прямым именам в PATH.
+$python = $null
+
+function Test-PythonExe([string]$exe, [string[]]$prefix) {
+    # Возвращает путь к интерпретатору, если он живой и версия подходит.
+    try {
+        $out = & $exe @prefix "-c" "import sys;print(sys.executable)" 2>$null
+    } catch {
+        return $null
+    }
+    if ($LASTEXITCODE -ne 0 -or -not $out) { return $null }
+    return ($out | Select-Object -Last 1).Trim()
 }
 
-if (-not $py) {
+if (Get-Command py -ErrorAction SilentlyContinue) {
+    foreach ($v in @("3.12", "3.11", "3.10")) {
+        $found = Test-PythonExe "py" @("-$v")
+        if ($found) { $python = $found; break }
+    }
+}
+
+if (-not $python) {
+    foreach ($name in @("python3.12", "python3.11", "python3.10", "python")) {
+        if (-not (Get-Command $name -ErrorAction SilentlyContinue)) { continue }
+        $found = Test-PythonExe $name @()
+        if (-not $found) { continue }
+        $ver = & $found "-c" "import sys;print('%d.%d' % sys.version_info[:2])" 2>$null
+        if ($ver -in @("3.12", "3.11", "3.10")) { $python = $found; break }
+    }
+}
+
+if (-not $python) {
     Write-Host "ОШИБКА: не найден Python 3.10, 3.11 или 3.12." -ForegroundColor Red
     Write-Host ""
     Write-Host "На Python 3.13+ pycozmo падает с 'No module named chunk'."
     Write-Host "Поставьте Python 3.12 одним из способов:"
-    Write-Host "  1) https://www.python.org/downloads/windows/ — найдите любой 3.12.x,"
+    Write-Host "  1) winget install -e --id Python.Python.3.12"
+    Write-Host "     (потом закройте и откройте PowerShell заново)"
+    Write-Host "  2) https://www.python.org/downloads/windows/ — найдите любой 3.12.x,"
     Write-Host "     скачайте 'Windows installer (64-bit)'."
     Write-Host "     При установке ОБЯЗАТЕЛЬНО галочка 'Add python.exe to PATH'."
-    Write-Host "  2) Microsoft Store — найдите 'Python 3.12' и нажмите Получить."
     exit 1
 }
 
-Write-Host "==> Использую Python $py" -ForegroundColor Green
-& py "-$py" -m venv .venv
+Write-Host "==> Использую $python" -ForegroundColor Green
+& $python -m venv .venv
 if ($LASTEXITCODE -ne 0) { Write-Host "Не удалось создать .venv" -ForegroundColor Red; exit 1 }
 
 $python = ".\.venv\Scripts\python.exe"
