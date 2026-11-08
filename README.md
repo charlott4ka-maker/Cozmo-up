@@ -133,6 +133,11 @@ python examples/09_russian_speech.py     # робот говорит по-рус
 python examples/10_russian_bot.py        # всё вместе: ездит, говорит, реагирует
 python examples/11_dialog.py             # разговор: спрашиваешь — отвечает
 python examples/12_buttons.py            # кнопка на спине, поглаживание, кубик
+python examples/13_keyboard.py           # руление стрелками с клавиатуры
+python examples/14_camera_live.py        # живое видео в окне + руление
+python examples/15_explore.py            # катается сам, не падает со стола
+python examples/16_markers.py            # видит маркер и едет к нему
+python examples/17_photo_hunt.py         # фотоохота: ездит и снимает
 ```
 
 Для `02`, `07` снимите робота с базы и поставьте на ровную поверхность.
@@ -314,6 +319,37 @@ pycozmo выполняются в её сетевом потоке, и долг�
 
 ---
 
+## Зрение и маркеры
+
+```bash
+python scripts/make_markers.py       # markers/markers.png -> распечатать
+python examples/16_markers.py        # робот найдёт маркер и подъедет
+```
+
+**Про кубики честно:** родные символы на гранях кубиков Anki pycozmo
+распознавать не умеет — этого в библиотеке просто нет. Кубик сообщает о
+себе по радио (`ObjectAvailable`, `ObjectTapped`, акселерометр), но
+камерой его не найти. ArUco-маркеры на бумаге делают ровно то же самое
+и работают надёжно.
+
+Белое поле вокруг чёрного квадрата обязательно — без него маркер не
+распознаётся. `make_markers.py` добавляет его сам.
+
+```python
+from cozmo_up.vision import MarkerDetector
+
+detector = MarkerDetector()
+marker = detector.nearest(image)     # самый близкий, или None
+marker.id        # номер
+marker.size      # сторона в пикселях: чем больше, тем ближе
+marker.offset    # -1.0 слева, 0.0 по центру, +1.0 справа
+```
+
+Камера Козмо — 320x240, так что печатайте маркеры покрупнее: чем больше
+лист, тем с большего расстояния он их видит.
+
+---
+
 ## Как это устроено
 
 ```
@@ -323,11 +359,14 @@ cozmo_up/speech.py    русская речь, конвертация аудио
 cozmo_up/ears.py      распознавание русской речи офлайн (Vosk)
 cozmo_up/brain.py     диалоговый движок: фраза -> действие
 cozmo_up/buttons.py   кнопка на спине, поглаживание, тапы по кубику
+cozmo_up/keys.py      чтение клавиш без Enter (Windows и POSIX)
+cozmo_up/vision.py    камера и распознавание ArUco-маркеров
 examples/             пронумерованные примеры от простого к сложному
 scripts/setup.sh      установка окружения (macOS/Linux)
 scripts/setup.ps1     установка окружения (Windows)
 scripts/doctor.py     диагностика: Python, pycozmo, ассеты, сеть робота
 scripts/make_voice.py генерация русских фраз в voices/
+scripts/make_markers.py лист с маркерами для печати
 phrases.ru.json       словарь фраз {ключ: текст}
 dialog.ru.json        правила диалога: что услышал -> что сделать
 requirements.txt      pycozmo 0.8.0 + Pillow + edge-tts + miniaudio
