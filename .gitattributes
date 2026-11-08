@@ -1,0 +1,6 @@
+# PowerShell 5.1 неверно разбирает скрипты с Unix-переносами строк
+*.ps1 text eol=crlf
+
+# Остальное — как обычно
+*.sh  text eol=lf
+*.py  text eol=lf

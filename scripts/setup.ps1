@@ -79,22 +79,23 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "  .\.venv\Scripts\python.exe scripts\make_voice.py"
 }
 
-Write-Host @"
-
-================================================================
-Установка закончена. Дальше:
-
-  1. Поставьте Cozmo на зарядную базу, он проснётся.
-  2. Поднимите и опустите ковш — на экране покажется Wi-Fi-пароль.
-  3. Подключите компьютер к сети Cozmo_XXXXXX этим паролем.
-  4. Проверьте готовность:
-
-       .\.venv\Scripts\python.exe scripts\doctor.py
-
-  5. Подключитесь к роботу:
-
-       .\.venv\Scripts\python.exe examples\01_connect.py
-
-Команды можно копировать как есть — активировать venv не нужно.
-================================================================
-"@ -ForegroundColor Cyan
+# Здесь намеренно не используется here-string: Windows PowerShell 5.1 не
+# распознаёт его закрывающий маркер в файлах с Unix-переносами строк (LF).
+$line = "================================================================"
+Write-Host ""
+Write-Host $line -ForegroundColor Cyan
+Write-Host "Установка закончена. Дальше:" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "  1. Поставьте Cozmo на зарядную базу, он проснётся." -ForegroundColor Cyan
+Write-Host "  2. Поднимите и опустите ковш - на экране покажется Wi-Fi-пароль." -ForegroundColor Cyan
+Write-Host "  3. Подключите компьютер к сети Cozmo_XXXXXX этим паролем." -ForegroundColor Cyan
+Write-Host "  4. Проверьте готовность:" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "       .\.venv\Scripts\python.exe scripts\doctor.py" -ForegroundColor White
+Write-Host ""
+Write-Host "  5. Подключитесь к роботу:" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "       .\.venv\Scripts\python.exe examples\01_connect.py" -ForegroundColor White
+Write-Host ""
+Write-Host "Команды можно копировать как есть - активировать venv не нужно." -ForegroundColor Cyan
+Write-Host $line -ForegroundColor Cyan
